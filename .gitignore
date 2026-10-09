@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.venv/
+__pycache__/
+.cache/
+output/
+.auth/
+.env
+.env.*
+google_credentials.json
