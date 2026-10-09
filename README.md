@@ -7,5 +7,5 @@ Website: https://swhoyle.github.io/survivor-fantasy/
 
 ### Techbologies
 - Scraped and parsed Bracketology data using Python and Playwright.
-- Stored data in Google Sheets and made it publicly available.
+- Stored data in Google Sheets with Google API and made it avialable publicly.
 - Built a React application front end.
