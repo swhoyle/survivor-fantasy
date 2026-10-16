@@ -12,6 +12,7 @@ const fields = {
   Scoreboard: {},
   Analytics: {
     analyticsPlayers: ["players", "all", ["all", "active"]],
+    analyticsEpisode: ["episode", "total"],
   },
   "Weekly Scores": {
     weeklyView: ["view", "week", ["week", "all"]],

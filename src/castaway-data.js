@@ -6,6 +6,20 @@ export function buildCastawayDetails(data, name) {
   const scores = data.episodeScores.filter((row) => row.Player === name);
   const events = data.episodeRules.filter((row) => row.Player === name);
   const picks = data.userPicks.filter((row) => row.Contestant === name);
+  const uniqueSeasonPicks = new Set();
+  const totalPicksByCastaway = new Map();
+  for (const pick of data.userPicks) {
+    const key = JSON.stringify([pick.User, pick.Episode, pick.Contestant]);
+    if (uniqueSeasonPicks.has(key)) continue;
+    uniqueSeasonPicks.add(key);
+    totalPicksByCastaway.set(pick.Contestant, (totalPicksByCastaway.get(pick.Contestant) ?? 0) + 1);
+  }
+  const rankedByPopularity = data.contestants.map((contestant) => ({
+    Player: contestant.Name,
+    Picks: totalPicksByCastaway.get(contestant.Name) ?? 0,
+  })).sort((left, right) => right.Picks - left.Picks || left.Player.localeCompare(right.Player));
+  const totalPicks = totalPicksByCastaway.get(name) ?? 0;
+  const popularityRank = rankedByPopularity.findIndex((row) => row.Picks === totalPicks) + 1;
   const episodes = [...new Set([
     ...data.episodeScores.map((row) => row.Episode),
     ...events.map((row) => row.Episode),
@@ -47,6 +61,9 @@ export function buildCastawayDetails(data, name) {
   return {
     profile,
     totalPoints: scores.length ? scores.reduce((sum, row) => sum + row["Total Score"], 0) : undefined,
+    totalPicks,
+    popularityRank,
+    castawayCount: rankedByPopularity.length,
     episodesScored: scoredWeeks.length,
     episodes: episodeRows,
     bestWeeks,

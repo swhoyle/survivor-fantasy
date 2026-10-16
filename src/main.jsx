@@ -285,6 +285,290 @@ function Table({ rows, columns, initial, tableClass }) {
     </div>
   );
 }
+
+function MobileEpisodePicker({ episodes, value, onChange, includeTotal = false }) {
+  return (
+    <div className="mobile-episode-picker" aria-label="Choose episode">
+      {includeTotal && <button type="button" className={value === "total" ? "active" : ""} aria-pressed={value === "total"} onClick={() => onChange("total")}>Total</button>}
+      {episodes.map((episode) => <button type="button" key={episode} className={value === episode ? "active" : ""} aria-pressed={value === episode} aria-label={"Episode " + episodeNumber(episode)} onClick={() => onChange(episode)}>EP {episodeNumber(episode)}</button>)}
+    </div>
+  );
+}
+
+function MobileNavigation({ page, onNavigate }) {
+  const current = page === "Member" ? "Scoreboard" : page === "Castaway" ? "Castaways" : page;
+  return <nav className="mobile-bottom-nav" aria-label="Mobile navigation">{pages.map((item) => <button key={item} type="button" className={current === item ? "active" : ""} aria-current={current === item ? "page" : undefined} onClick={() => onNavigate(item)}>{item === "Weekly Scores" ? "Weekly" : item}</button>)}</nav>;
+}
+
+function MobileDashboard(props) {
+  const {
+    page, data, episodes, members, scoreboard, visibleCastaways, currentWeek,
+    weekIndex, memberHues, memberDisplayNames, castawayInfo, eliminationEpisodes,
+    memberDetails, memberProfile, memberUsername, castawayName, castawayDetails,
+    analytics, analyticsPlayers, setAnalyticsPlayers, analyticsEpisode, setAnalyticsEpisode, setWeek,
+    contestantMetric, setContestantMetric, scoringView,
+    setScoringView, search, setSearch, scoringRuleRows, scoringEvents, scoringCastawayDetails, closeMember,
+    closeCastaway,
+  } = props;
+  const [scorePeriod, setScorePeriod] = useState(() => sessionStorage.getItem("survivor-score-period") || "total");
+  const [castawayQuery, setCastawayQuery] = useState("");
+  const [eventEpisode, setEventEpisode] = useState(episodes.at(-1) || "");
+  const [openWeeklyPlayer, setOpenWeeklyPlayer] = useState("");
+  const [openScoreboardMember, setOpenScoreboardMember] = useState("");
+  const [openCastaway, setOpenCastaway] = useState("");
+  const [openScoringRule, setOpenScoringRule] = useState("");
+  const [openMemberEpisode, setOpenMemberEpisode] = useState("");
+  const [openCastawayEpisode, setOpenCastawayEpisode] = useState("");
+  const pageTitle = page === "Weekly Scores" ? "Weekly Scores" : page;
+  const activeScorePeriod = scorePeriod === "total" || episodes.includes(scorePeriod) ? scorePeriod : "total";
+  const chooseScorePeriod = (value) => {
+    setScorePeriod(value);
+    sessionStorage.setItem("survivor-score-period", value);
+  };
+
+  if (page === "Scoreboard") {
+    const rows = scoreboard.map((row) => ({ ...row, MobilePoints: activeScorePeriod === "total" ? row.Points : row[activeScorePeriod] }))
+      .sort((a, b) => (b.MobilePoints ?? -Infinity) - (a.MobilePoints ?? -Infinity) || a.Username.localeCompare(b.Username));
+    let rank = 0;
+    let previous;
+    return <section className="mobile-page">
+      <div className="section-heading"><div><h1>Scoreboard</h1><p className="mobile-subtitle">League standings by points</p></div></div>
+      <MobileEpisodePicker episodes={episodes} value={activeScorePeriod} includeTotal onChange={chooseScorePeriod} />
+      <div className="mobile-card-list">{rows.map((row, index) => {
+        if (index === 0 || row.MobilePoints !== previous) rank = index + 1;
+        previous = row.MobilePoints;
+        const picks = activeScorePeriod === "total" ? row.PickedSeasonDetails : row.PickedEpisodeDetails[activeScorePeriod] ?? [];
+        return <details className="mobile-card mobile-weekly-expander mobile-score-expander" key={row.Username} open={openScoreboardMember === row.Username} onToggle={(event) => {
+          if (event.currentTarget.open) setOpenScoreboardMember(row.Username);
+          else if (openScoreboardMember === row.Username) setOpenScoreboardMember("");
+        }}>
+          <summary className="mobile-weekly-summary">
+            <span className="mobile-rank">{rank}</span>
+            <span className="mobile-score-member"><MemberTag username={row.Username} hue={memberHues.get(row.Username)} /><span className="mobile-score-display-name">{memberDisplayNames.get(row.Username) || row.Username}</span></span>
+            <strong className="mobile-weekly-score"><Points value={row.MobilePoints} seasonTotal /><span className="mobile-expand-control" aria-hidden="true"><span className="mobile-expand-open"><svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6" /></svg></span><span className="mobile-expand-close"><svg viewBox="0 0 24 24"><path d="m6 15 6-6 6 6" /></svg></span></span></strong>
+          </summary>
+          <div className="mobile-weekly-breakdown mobile-score-picks">
+            <h2>{activeScorePeriod === "total" ? "Season picks and points" : "Episode " + episodeNumber(activeScorePeriod) + " picks and points"}</h2>
+            {picks.length ? <>
+              <div className="mobile-pick-grid-heading" aria-hidden="true"><span>Player</span><span>Picks</span><span>Points</span></div>
+              <ul className="mobile-scoring-rules mobile-pick-grid">{[...picks].sort((a, b) => (b.Point ?? -Infinity) - (a.Point ?? -Infinity) || a.Player.localeCompare(b.Player)).map((pick) => <li key={pick.Player}><CastawayIdentity name={pick.Player} eliminated={castawayInfo.get(pick.Player)?.Eliminated} /><span className="mobile-pick-count">{pick.Count}</span><span className="mobile-pick-points"><Points value={pick.Point} highlightPositive /></span></li>)}</ul>
+            </> : <p className="muted">No picks for this episode yet.</p>}
+          </div>
+        </details>;
+      })}</div>
+    </section>;
+  }
+
+  if (page === "Weekly Scores") {
+    const rows = data.contestants.map((contestant) => ({
+      ...contestant,
+      Episode: currentWeek,
+      Score: data.episodeScores.find((score) => score.Player === contestant.Name && score.Episode === currentWeek)?.["Total Score"],
+      Users: [...new Set(data.userPicks.filter((pick) => pick.Episode === currentWeek && pick.Contestant === contestant.Name).map((pick) => pick.User))],
+      Eliminated: eliminationEpisodes.get(contestant.Name) === currentWeek,
+    })).filter((row) => {
+      const eliminatedIn = eliminationEpisodes.get(row.Name);
+      return currentWeek && (!eliminatedIn || episodeNumber(eliminatedIn) >= episodeNumber(currentWeek));
+    }).sort((a, b) => (b.Score ?? -Infinity) - (a.Score ?? -Infinity));
+    const ranks = rows.map((row, index) => index === 0 || row.Score !== rows[index - 1].Score ? index + 1 : null);
+    ranks.forEach((rank, index) => { if (rank === null) ranks[index] = ranks[index - 1]; });
+    const eliminated = rows.filter((row) => row.Eliminated);
+    return <section className="mobile-page">
+      <div className="section-heading"><div><h1>Weekly Scores</h1><p className="mobile-subtitle">Contestant points and league picks</p></div></div>
+      <div className="mobile-week-switch"><button type="button" aria-label="Previous episode" disabled={weekIndex <= 0} onClick={() => setWeek(episodes[weekIndex - 1])}>‹</button><strong>{currentWeek ? "Episode " + episodeNumber(currentWeek) : "No episodes"}</strong><button type="button" aria-label="Next episode" disabled={weekIndex >= episodes.length - 1} onClick={() => setWeek(episodes[weekIndex + 1])}>›</button></div>
+      {eliminated.length > 0 && <aside className="mobile-eliminated-banner" aria-label="Eliminated this episode">
+        <span className="mobile-eliminated-label">OUT THIS EPISODE</span>
+        <div className="mobile-eliminated-players">{eliminated.map((row) => <CastawayIdentity key={row.Name} name={row.Name} eliminated={false} />)}</div>
+      </aside>}
+      <div className="mobile-card-list">{rows.map((row, index) => {
+        const rules = data.episodeRules.filter((rule) => rule.Player === row.Name && rule.Episode === row.Episode);
+        const rank = ranks[index];
+        return <details className="mobile-card mobile-weekly-expander" key={row.Name} open={openWeeklyPlayer === row.Name} onToggle={(event) => {
+          if (event.currentTarget.open) setOpenWeeklyPlayer(row.Name);
+          else if (openWeeklyPlayer === row.Name) setOpenWeeklyPlayer("");
+        }}>
+          <summary className="mobile-weekly-summary">
+            <span className="mobile-rank">{rank}</span>
+            <span className="mobile-weekly-player"><CastawayIdentity name={row.Name} eliminated={false} linked={false} /><span className={"tribe " + row.Tribe.toLowerCase()}>{row.Tribe}</span>{row.Eliminated && <span className="eliminated-marker" title="Out" aria-label="Out">OUT</span>}<span className="mobile-picked-count">{row.Users.length ? "Picked by " + row.Users.length + " " + (row.Users.length === 1 ? "person" : "people") : "Not picked"}</span></span>
+            <strong className="mobile-weekly-score"><Points value={row.Score} highlightPositive /><span className="mobile-expand-control" aria-hidden="true"><span className="mobile-expand-open"><svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6" /></svg></span><span className="mobile-expand-close"><svg viewBox="0 0 24 24"><path d="m6 15 6-6 6 6" /></svg></span></span></strong>
+          </summary>
+          <div className="mobile-weekly-breakdown">
+            <h2>How they scored</h2>
+            {rules.length ? <ul className="mobile-scoring-rules">{rules.map((rule, index) => <li key={rule.Rule + index}><span>{rule.Rule}</span><Points value={rule.Point} highlightPositive /></li>)}</ul> : <p className="muted">No scoring details available.</p>}
+            <div className="mobile-picked-by"><span className="muted">Picked by</span><div className="mobile-chip-list">{row.Users.length ? row.Users.map((user) => <MemberTag key={user} username={user} hue={memberHues.get(user)} />) : <span className="muted">Not picked</span>}</div></div>
+          </div>
+        </details>;
+      })}</div>
+    </section>;
+  }
+
+  if (page === "Castaways") {
+    const query = castawayQuery.trim().toLowerCase();
+    const rows = visibleCastaways.filter((row) => !query || (row.Name + " " + row.Tribe).toLowerCase().includes(query)).sort((left, right) => right.PointTotal - left.PointTotal || right.PickTotal - left.PickTotal || left.Name.localeCompare(right.Name));
+    return <section className="mobile-page">
+      <div className="section-heading"><div><h1>Castaways</h1><p className="mobile-subtitle">Season performance and picks</p></div></div>
+      <input className="mobile-search" aria-label="Search castaways" placeholder="Search castaways" value={castawayQuery} onChange={(event) => setCastawayQuery(event.target.value)} />
+      <div className="mobile-castaway-metric-head"><span aria-hidden="true"></span><span>Castaway</span><span>Points</span><span>Picks</span><span aria-hidden="true"></span></div>
+      <div className="mobile-card-list">{rows.map((row, index) => <article className="mobile-card mobile-castaway-row" key={row.Name}>
+        <button className="mobile-castaway-trigger" type="button" aria-expanded={openCastaway === row.Name} onClick={() => setOpenCastaway((current) => current === row.Name ? "" : row.Name)}>
+          <span className="mobile-rank">{index + 1}</span>
+          <span className="mobile-card-main"><CastawayIdentity name={row.Name} eliminated={eliminationEpisodes.has(row.Name)} /><span className={"tribe " + row.Tribe.toLowerCase()}>{row.Tribe}</span></span>
+          <span className="mobile-castaway-value"><Points value={row.PointTotal} seasonTotal /></span>
+          <span className="mobile-castaway-value mobile-castaway-picks">{row.PickTotal ?? 0}</span>
+          <span className="mobile-expand-control" aria-hidden="true"><span className="mobile-expand-open"><svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6" /></svg></span><span className="mobile-expand-close"><svg viewBox="0 0 24 24"><path d="m6 15 6-6 6 6" /></svg></span></span>
+        </button>
+        {openCastaway === row.Name && <div className="mobile-castaway-breakdown">
+          <section><h3>Points breakdown</h3>{row.RuleTotals.length ? <ul className="mobile-scoring-rules">{row.RuleTotals.slice().sort((a, b) => b.Point - a.Point).map((rule) => <li key={rule.Rule}><span>{rule.Rule}{rule.Count > 1 ? ` ×${rule.Count}` : ""}</span><Points value={rule.Point} highlightPositive /></li>)}</ul> : <p className="muted">No points scored.</p>}</section>
+          <section><h3>Picked by ({row.PickTotal ?? 0})</h3>{row.MemberTotals.length ? <div className="mobile-chip-list">{row.MemberTotals.slice().sort((a, b) => b.Count - a.Count).map((member) => <span className="mobile-castaway-picker" key={member.Member}><MemberTag username={member.Member} hue={memberHues.get(member.Member)} /><span className="score-count">{member.Count}</span></span>)}</div> : <p className="muted">Not picked.</p>}</section>
+        </div>}
+      </article>)}</div>
+    </section>;
+  }
+
+  if (page === "Scoring") {
+    const rows = scoringRuleRows.slice().sort((left, right) => (right.Total ?? 0) - (left.Total ?? 0) || left.Rule.localeCompare(right.Rule));
+    return <section className="mobile-page">
+      <div className="section-heading"><div><h1>Scoring</h1><p className="mobile-subtitle">Season points by rule</p></div></div>
+      <input className="mobile-search" aria-label="Search scoring rules" placeholder="Search scoring rules" value={search} onChange={(event) => setSearch(event.target.value)} />
+      <div className="mobile-card-list">{rows.slice(0, 120).map((row, index) => <details className="mobile-card mobile-weekly-expander" key={row.Rule} open={openScoringRule === row.Rule} onToggle={(event) => {
+        if (event.currentTarget.open) setOpenScoringRule(row.Rule);
+        else if (openScoringRule === row.Rule) setOpenScoringRule("");
+      }}>
+        <summary className="mobile-weekly-summary mobile-scoring-summary">
+          <span className="mobile-rank">{index + 1}</span>
+          <span className="mobile-weekly-player"><span className="mobile-scoring-rule-name">{row.Rule}</span></span>
+          <span className="mobile-rule-value">{row.Point > 0 ? "+" : row.Point < 0 ? "−" : ""}{Math.abs(row.Point)}</span>
+          <span className="mobile-scoring-total"><Points value={row.Total ?? 0} seasonTotal /></span>
+          <span className="mobile-expand-control" aria-hidden="true"><span className="mobile-expand-open"><svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6" /></svg></span><span className="mobile-expand-close"><svg viewBox="0 0 24 24"><path d="m6 15 6-6 6 6" /></svg></span></span>
+        </summary>
+        <div className="mobile-weekly-breakdown"><h2>Castaways with points</h2>{row.SeasonDetails.length ? <ul className="mobile-scoring-rules">{row.SeasonDetails.slice().sort((left, right) => right.Point - left.Point || left.Player.localeCompare(right.Player)).map((detail) => <li key={detail.Player}><CastawayIdentity name={detail.Player} eliminated={castawayInfo.get(detail.Player)?.Eliminated} /><span className="mobile-rule-detail-score">{detail.Count > 1 && <span className="muted">×{detail.Count} </span>}<Points value={detail.Point} seasonTotal /></span></li>)}</ul> : <p className="muted">No points scored for this rule yet.</p>}</div>
+      </details>)}{!rows.length && <p className="empty">No matching scoring rules.</p>}</div>
+    </section>;
+  }
+
+  const activeAnalyticsEpisode = episodes.includes(analyticsEpisode) ? analyticsEpisode : "total";
+  const mobileAnalytics = page === "Analytics" && data
+    ? buildAnalytics(data, { activeOnly: analyticsPlayers === "active", episode: activeAnalyticsEpisode === "total" ? "" : activeAnalyticsEpisode })
+    : analytics;
+  if (page === "Analytics" && mobileAnalytics) {
+    const groups = [
+      { title: "Most Points", rows: groupAnalyticsPlayers(mobileAnalytics.mostPoints, "Point"), metric: "Point" },
+      { title: "Least Points", rows: groupAnalyticsPlayers(mobileAnalytics.leastPoints, "Point"), metric: "Point" },
+      { title: "Most Picked", rows: groupAnalyticsPlayers(mobileAnalytics.mostPicked, "Picks"), metric: "Picks" },
+      { title: "Least Picked", rows: groupAnalyticsPlayers(mobileAnalytics.leastPicked, "Picks"), metric: "Picks" },
+      { title: "Top Scoring Rules", rows: mobileAnalytics.topRules, metric: "Point", rules: true },
+      { title: "Worst Scoring Rules", rows: mobileAnalytics.bottomRules, metric: "Point", rules: true },
+      { title: "Favorite Player", rows: mobileAnalytics.favoritePlayers, memberSummaries: true, metric: "Count" },
+      { title: "Best Player", rows: mobileAnalytics.bestPlayers, memberSummaries: true, metric: "Point" },
+    ];
+    return <section className="mobile-page">
+      <div className="section-heading"><div><h1>Analytics</h1><p className="mobile-subtitle">Season leaders and trends</p></div></div>
+      <MobileEpisodePicker episodes={episodes} value={activeAnalyticsEpisode} includeTotal onChange={setAnalyticsEpisode} />
+      <label className="mobile-inline-toggle"><input type="checkbox" checked={analyticsPlayers === "active"} onChange={(event) => setAnalyticsPlayers(event.target.checked ? "active" : "all")} /> Active castaways only</label>
+      <div className="mobile-analytics-grid">{groups.map((group) => <article className="mobile-card mobile-analytics-card" key={group.title}><h2>{group.title}</h2>
+        {group.memberSummaries ? group.rows.map((row) => <div className="mobile-member-analytics-row" key={row.Member}>
+          <div className="mobile-member-analytics-user"><MemberTag username={row.Member} hue={memberHues.get(row.Member)} /><span>{memberDisplayNames.get(row.Member) || row.Name || row.Member}</span></div>
+          <div className="mobile-member-analytics-targets">{row.Players.length ? row.Players.map((player) => <span className="mobile-member-analytics-target" key={player.Player}><CastawayIdentity name={player.Player} eliminated={eliminationEpisodes.has(player.Player)} /><span className="mobile-member-analytics-value">{group.metric === "Count" ? `${player.Count} picks` : <Points value={player.Point} seasonTotal />}</span></span>) : <span className="muted">No picks yet</span>}</div>
+        </div>) : group.rows.map((row, index) => <div className={`mobile-analytics-row${!group.rules && row.Players.length > 1 ? " mobile-analytics-tied-row" : ""}`} key={group.rules ? row.Rule : row.Rank + row.Player}><span className="mobile-rank">{row.Rank ?? index + 1}</span><div className="mobile-card-main">{group.rules ? <strong>{row.Rule}</strong> : row.Players.map((player) => <CastawayIdentity key={player.Player} name={player.Player} eliminated={player.Eliminated} />)}</div>{group.rules ? <ScoreDetailsWidget player={row.Rule} episode={activeAnalyticsEpisode === "total" ? "Season points" : `Episode ${episodeNumber(activeAnalyticsEpisode)} points`} score={row.Point} details={scoringCastawayDetails(data.episodeRules.filter((event) => event.Rule === row.Rule && (activeAnalyticsEpisode === "total" || event.Episode === activeAnalyticsEpisode) && (analyticsPlayers !== "active" || !eliminationEpisodes.has(event.Player))))} detailsMode="picked-castaways" seasonTotal showCount showChevron={false} /> : <Points value={row[group.metric]} seasonTotal={activeAnalyticsEpisode === "total"} highlightPositive={activeAnalyticsEpisode !== "total"} />}</div>)}
+      </article>)}</div>
+    </section>;
+  }
+
+  if (page === "Member") return <section className="mobile-page mobile-profile-page mobile-unboxed-profile">
+    <button type="button" className="member-back-button" onClick={closeMember}><span aria-hidden="true">←</span> Back</button>
+    <div className="mobile-profile-heading"><MemberTag username={memberUsername} hue={memberHues.get(memberUsername)} /><h1>{memberDetails?.profile?.Name || memberUsername}</h1></div>
+    {!memberDetails ? <p className="empty">Member not found.</p> : <>
+      <div className="mobile-profile-stats"><div><span>Rank</span><strong>{memberProfile?.Rank ?? "—"} / {members.length}</strong></div><div><span>Season points</span><strong><Points value={memberProfile?.Points} seasonTotal /></strong></div></div>
+      <section className="mobile-member-highlights">
+        <h2>Season highlights</h2>
+        {[
+          { label: "Favorite Player", players: memberDetails.mostPickedPlayers, kind: "favorite" },
+          { label: "Best Player", players: memberDetails.bestPlayers, kind: "player" },
+          { label: "Worst Player", players: memberDetails.worstPlayers, kind: "player" },
+          { label: "Best Pick", players: memberDetails.bestPicks, kind: "pick" },
+          { label: "Worst Pick", players: memberDetails.worstPicks, kind: "pick" },
+        ].map((metric) => <div className="mobile-member-highlight" key={metric.label}>
+          <strong>{metric.label}</strong>
+          <div className="mobile-member-highlight-values">{metric.players.length ? metric.players.map((player) => <span className="mobile-member-highlight-item" key={`${player.Player}-${player.Episode || "season"}`}>
+            <CastawayIdentity name={player.Player} eliminated={eliminationEpisodes.has(player.Player)} />
+            {metric.kind === "favorite" ? <span className="muted">{player.Count} picks</span> : metric.kind === "pick" ? <><span className="muted">EP {episodeNumber(player.Episode)}</span><Points value={player.Point} highlightPositive /></> : <Points value={player.Point} seasonTotal />}
+          </span>) : <span className="muted">—</span>}</div>
+        </div>)}
+      </section>
+      <section className="mobile-member-episodes">
+        <h2>Episode Scores</h2>
+        <div className="mobile-card-list">{memberDetails.episodes.map((row) => {
+          const picks = memberDetails.picks.filter((pick) => pick.Episode === row.Episode).sort((left, right) =>
+            (right.Point ?? -Infinity) - (left.Point ?? -Infinity) || left.Player.localeCompare(right.Player),
+          );
+          return <details className="mobile-card mobile-weekly-expander mobile-member-episode-row" key={row.Episode} open={openMemberEpisode === row.Episode} onToggle={(event) => {
+            if (event.currentTarget.open) setOpenMemberEpisode(row.Episode);
+            else if (openMemberEpisode === row.Episode) setOpenMemberEpisode("");
+          }}>
+            <summary className="mobile-weekly-summary mobile-member-episode-summary">
+              <strong>Episode {episodeNumber(row.Episode)}</strong>
+              <strong className="mobile-weekly-score"><Points value={row.Points} highlightPositive /><span className="mobile-expand-control" aria-hidden="true"><span className="mobile-expand-open"><svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6" /></svg></span><span className="mobile-expand-close"><svg viewBox="0 0 24 24"><path d="m6 15 6-6 6 6" /></svg></span></span></strong>
+            </summary>
+            <div className="mobile-weekly-breakdown"><h2>Picked castaways</h2>{picks.length ? <ul className="mobile-scoring-rules">{picks.map((pick) => <li key={pick.Player}><CastawayIdentity name={pick.Player} eliminated={eliminationEpisodes.get(pick.Player) === row.Episode} /><Points value={pick.Point} highlightPositive /></li>)}</ul> : <p className="muted">No picks for this episode.</p>}</div>
+          </details>;
+        })}</div>
+      </section>
+    </>}
+  </section>;
+
+  if (page === "Castaway") {
+    const memberPickCounts = new Map();
+    for (const episode of castawayDetails?.episodes ?? []) {
+      for (const username of episode.Members) memberPickCounts.set(username, (memberPickCounts.get(username) ?? 0) + 1);
+    }
+    const leagueMembers = data?.members ?? [];
+    const leastPickCount = leagueMembers.length ? Math.min(...leagueMembers.map((member) => memberPickCounts.get(member.Username) ?? 0)) : 0;
+    const leastPickedBy = leagueMembers
+      .filter((member) => (memberPickCounts.get(member.Username) ?? 0) === leastPickCount)
+      .map((member) => ({ Username: member.Username, Count: leastPickCount }))
+      .sort((left, right) => left.Username.localeCompare(right.Username));
+    return <section className="mobile-page mobile-profile-page mobile-unboxed-profile">
+    <button type="button" className="member-back-button" onClick={closeCastaway}><span aria-hidden="true">←</span> Back</button>
+    <div className="mobile-profile-heading"><CastawayIdentity name={castawayName} linked={false} eliminated={eliminationEpisodes.has(castawayName)} /></div>
+    {!castawayDetails ? <p className="empty">Castaway not found.</p> : <>
+      <p className="mobile-profile-bio">{[castawayDetails.profile.Age, castawayDetails.profile.Hometown, castawayDetails.profile.Occupation].filter(Boolean).join(" · ")}</p>
+      <div className="mobile-profile-stats mobile-castaway-stats"><div><span>Season points</span><strong><Points value={castawayDetails.totalPoints} seasonTotal /></strong></div><div><span>Tribe</span><strong>{castawayDetails.profile.Tribe}</strong></div><div><span>Status</span><strong>{eliminationEpisodes.has(castawayName) ? "Out · Episode " + episodeNumber(eliminationEpisodes.get(castawayName)) : "Active"}</strong></div></div>
+      <section className="mobile-member-highlights mobile-castaway-highlights">
+        <h2>Season highlights</h2>
+        {[
+          { label: "Most points scored", episodes: castawayDetails.bestWeeks, kind: "episode" },
+          { label: "Least points scored", episodes: castawayDetails.worstWeeks, kind: "episode" },
+          { label: "Times picked", kind: "popularity" },
+          { label: "Most picked by", members: castawayDetails.mostPickedBy, count: castawayDetails.mostPickedBy[0]?.Count, kind: "members" },
+          { label: "Least picked by", members: leastPickedBy, count: leastPickCount, kind: "members" },
+        ].map((metric) => <div className="mobile-member-highlight" key={metric.label}>
+          <strong>{metric.label}</strong>
+          <div className="mobile-member-highlight-values">{metric.kind === "episode" ? metric.episodes.length ? metric.episodes.map((week) => <span className="mobile-member-highlight-item" key={week.Episode}><Points value={week.Points} highlightPositive={metric.label === "Most points scored"} /><span className="muted">(Episode {episodeNumber(week.Episode)})</span></span>) : <span className="muted">—</span> : metric.kind === "popularity" ? <span className="mobile-member-highlight-item"><strong>{castawayDetails.totalPicks} picks</strong><span className="muted">(Rank #{castawayDetails.popularityRank} of {castawayDetails.castawayCount})</span></span> : metric.members.length ? <><span className="mobile-member-highlight-item">{metric.members.map((member) => <MemberTag key={member.Username} username={member.Username} hue={memberHues.get(member.Username)} />)}</span><span className="muted">{metric.count} {metric.count === 1 ? "time" : "times"}</span></> : <span className="muted">—</span>}</div>
+        </div>)}
+      </section>
+      <section className="mobile-member-episodes">
+        <h2>Episode Scores</h2>
+        <div className="mobile-card-list">{castawayDetails.episodes.map((row) => <details className="mobile-card mobile-weekly-expander mobile-member-episode-row" key={row.Episode} open={openCastawayEpisode === row.Episode} onToggle={(event) => {
+          if (event.currentTarget.open) setOpenCastawayEpisode(row.Episode);
+          else if (openCastawayEpisode === row.Episode) setOpenCastawayEpisode("");
+        }}>
+          <summary className="mobile-weekly-summary mobile-member-episode-summary">
+            <strong>Episode {episodeNumber(row.Episode)}</strong>
+            <span className="mobile-castaway-episode-picked-count">{row.Members.length ? `Picked by ${row.Members.length} ${row.Members.length === 1 ? "player" : "players"}` : "Not picked"}</span>
+            <strong className="mobile-weekly-score"><Points value={row.Points} highlightPositive /><span className="mobile-expand-control" aria-hidden="true"><span className="mobile-expand-open"><svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6" /></svg></span><span className="mobile-expand-close"><svg viewBox="0 0 24 24"><path d="m6 15 6-6 6 6" /></svg></span></span></strong>
+          </summary>
+          <div className="mobile-weekly-breakdown">
+            <h2>How they scored</h2>
+            {row.Rules.length ? <ul className="mobile-scoring-rules">{row.Rules.slice().sort((left, right) => right.Point - left.Point || left.Rule.localeCompare(right.Rule)).map((rule) => <li key={rule.Rule}><span>{rule.Rule}{rule.Count > 1 ? ` ×${rule.Count}` : ""}</span><Points value={rule.Point} highlightPositive /></li>)}</ul> : <p className="muted">No scoring details for this episode.</p>}
+            <div className="mobile-picked-by"><span className="muted">Picked by ({row.Members.length})</span><div className="mobile-chip-list">{row.Members.length ? row.Members.map((username) => <MemberTag key={username} username={username} hue={memberHues.get(username)} />) : <span className="muted">No picks</span>}</div></div>
+          </div>
+        </details>)}</div>
+      </section>
+    </>}
+  </section>;
+  }
+  return <section className="mobile-page"><h1>{pageTitle}</h1></section>;
+}
 function RuleBreakdown({ details, showCount }) {
   if (!details.length)
     return <span className="muted">No scoring details are available.</span>;
@@ -692,12 +976,21 @@ function RulesDialog({ rules, onClose }) {
 }
 function App() {
   const [viewState, setViewState] = useState(() => readViewState(new URL(window.location.href)));
+  const [mobileView, setMobileView] = useState(() => {
+    const saved = localStorage.getItem("survivor-display-mode");
+    return saved ? saved === "mobile" : window.matchMedia("(max-width: 700px)").matches;
+  });
+  function chooseDisplayMode(mode) {
+    const isMobile = mode === "mobile";
+    setMobileView(isMobile);
+    localStorage.setItem("survivor-display-mode", isMobile ? "mobile" : "web");
+  }
   const replaceUrl = useRef(true);
   const {
     page, memberUsername, castawayName, week, weeklyView, selectedWeeklyMembers, scoringView,
     selectedScoringEpisodes, selectedScoringCastaways, selectedScoringMembers,
     selectedScoringSubcategories, search, contestantMetric,
-    selectedPickerMembers, selectedContestants, analyticsPlayers,
+    selectedPickerMembers, selectedContestants, analyticsPlayers, analyticsEpisode,
   } = viewState;
   const setViewField = (key) => (value) =>
     setViewState((previous) => ({ ...previous, [key]: value }));
@@ -714,7 +1007,8 @@ function App() {
     setContestantMetric = setViewField("contestantMetric"),
     setSelectedPickerMembers = setViewField("selectedPickerMembers"),
     setSelectedContestants = setViewField("selectedContestants"),
-    setAnalyticsPlayers = setViewField("analyticsPlayers");
+    setAnalyticsPlayers = setViewField("analyticsPlayers"),
+    setAnalyticsEpisode = setViewField("analyticsEpisode");
   useEffect(() => {
     const restoreView = () => {
       replaceUrl.current = true;
@@ -1322,7 +1616,7 @@ function App() {
   };
   return (
     <MemberNavigationContext.Provider value={{ open: openMember, openCastaway }}>
-    <div className="app">
+    <div className={mobileView ? "app mobile-view" : "app"}>
       <header>
         <div className="brand">
           <img className="brand-logo" src={survivorLogo} alt="Survivor logo" />
@@ -1333,8 +1627,12 @@ function App() {
             </span>
           </div>
         </div>
+        <div className="display-mode-toggle" role="group" aria-label="Display mode">
+          <button type="button" className={!mobileView ? "active" : ""} aria-pressed={!mobileView} onClick={() => chooseDisplayMode("web")}>Web</button>
+          <button type="button" className={mobileView ? "active" : ""} aria-pressed={mobileView} onClick={() => chooseDisplayMode("mobile")}>Mobile</button>
+        </div>
       </header>
-      {page !== "Member" && page !== "Castaway" && <nav aria-label="Main navigation">
+      {!mobileView && page !== "Member" && page !== "Castaway" && <nav aria-label="Main navigation">
         {pages.map((p) => (
           <button
             key={p}
@@ -1346,6 +1644,7 @@ function App() {
           </button>
         ))}
       </nav>}
+      {mobileView && <MobileNavigation page={page} onNavigate={navigate} />}
       {error && (
         <div className="error" role="alert">
           {error} {data && "Previous data is still shown."}
@@ -1360,7 +1659,43 @@ function App() {
         </p>
       ) : (
         <main>
-          {page === "Castaway" && (
+          {mobileView && <MobileDashboard
+            page={page}
+            data={data}
+            episodes={episodes}
+            members={members}
+            scoreboard={scoreboard}
+            visibleCastaways={visibleCastaways}
+            currentWeek={currentWeek}
+            weekIndex={weekIndex}
+            memberHues={memberHues}
+            memberDisplayNames={memberDisplayNames}
+            castawayInfo={castawayInfo}
+            eliminationEpisodes={eliminationEpisodes}
+            memberDetails={memberDetails}
+            memberProfile={memberProfile}
+            memberUsername={memberUsername}
+            castawayName={castawayName}
+            castawayDetails={castawayDetails}
+            analytics={analytics}
+            analyticsPlayers={analyticsPlayers}
+            setAnalyticsPlayers={setAnalyticsPlayers}
+            analyticsEpisode={analyticsEpisode}
+            setAnalyticsEpisode={setAnalyticsEpisode}
+            setWeek={setWeek}
+            contestantMetric={contestantMetric}
+            setContestantMetric={setContestantMetric}
+            scoringView={scoringView}
+            setScoringView={setScoringView}
+            search={search}
+            setSearch={setSearch}
+            scoringRuleRows={scoringRuleRows}
+            scoringEvents={scoringEvents}
+            scoringCastawayDetails={scoringCastawayDetails}
+            closeMember={closeMember}
+            closeCastaway={closeCastaway}
+          />}
+          {!mobileView && page === "Castaway" && (
             <div className="member-page castaway-page">
               <div className="member-page-heading">
                 <button type="button" className="member-back-button" onClick={closeCastaway} aria-label="Back to previous view" title="Back to previous view"><span aria-hidden="true">←</span> Back</button>
@@ -1448,7 +1783,7 @@ function App() {
               )}
             </div>
           )}
-          {page === "Member" && (
+          {!mobileView && page === "Member" && (
             <div className="member-page">
               <div className="member-page-heading">
                 <button type="button" className="member-back-button" onClick={closeMember} aria-label="Back to dashboard" title="Back to dashboard"><span aria-hidden="true">←</span> Back</button>
@@ -1562,7 +1897,7 @@ function App() {
               )}
             </div>
           )}
-          {page === "Scoreboard" && (
+          {!mobileView && page === "Scoreboard" && (
             <section>
               <div className="section-heading">
                 <h1>Scoreboard</h1>
@@ -1704,7 +2039,7 @@ function App() {
               </div>
             </section>
           )}
-          {page === "Weekly Scores" && (
+          {!mobileView && page === "Weekly Scores" && (
             <section>
               <div className="section-heading">
                 <h1>Weekly Scores</h1>
@@ -1847,7 +2182,7 @@ function App() {
               />
             </section>
           )}
-          {page === "Castaways" && (
+          {!mobileView && page === "Castaways" && (
             <section>
               <div className="section-heading">
                 <h1>Castaways</h1>
@@ -2019,7 +2354,7 @@ function App() {
               )}
             </section>
           )}
-          {page === "Analytics" && analytics && (
+          {!mobileView && page === "Analytics" && analytics && (
             <section className="analytics-page">
               <div className="section-heading analytics-heading">
                 <h1>Analytics</h1>
@@ -2059,7 +2394,7 @@ function App() {
               </div>
             </section>
           )}
-          {page === "Scoring" && (
+          {!mobileView && page === "Scoring" && (
             <section>
               <div className="section-heading">
                 <h1>Scoring</h1>
