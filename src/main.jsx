@@ -329,6 +329,21 @@ function MobileDashboard(props) {
   if (page === "Scoreboard") {
     const rows = scoreboard.map((row) => ({ ...row, MobilePoints: activeScorePeriod === "total" ? row.Points : row[activeScorePeriod] }))
       .sort((a, b) => (b.MobilePoints ?? -Infinity) - (a.MobilePoints ?? -Infinity) || a.Username.localeCompare(b.Username));
+    const latestEpisode = episodes.at(-1);
+    const previousRanks = new Map();
+    if (latestEpisode) {
+      const previousRows = scoreboard.map((row) => ({
+        Username: row.Username,
+        Points: (row.Points ?? 0) - (row[latestEpisode] ?? 0),
+      })).sort((left, right) => right.Points - left.Points || left.Username.localeCompare(right.Username));
+      let previousRank = 0;
+      let previousPoints;
+      previousRows.forEach((row, index) => {
+        if (index === 0 || row.Points !== previousPoints) previousRank = index + 1;
+        previousPoints = row.Points;
+        previousRanks.set(row.Username, previousRank);
+      });
+    }
     let rank = 0;
     let previous;
     return <section className="mobile-page">
@@ -338,21 +353,29 @@ function MobileDashboard(props) {
         if (index === 0 || row.MobilePoints !== previous) rank = index + 1;
         previous = row.MobilePoints;
         const picks = activeScorePeriod === "total" ? row.PickedSeasonDetails : row.PickedEpisodeDetails[activeScorePeriod] ?? [];
+        const rankMovement = previousRanks.has(row.Username) ? previousRanks.get(row.Username) - rank : 0;
+        const lastEpisodePoints = latestEpisode ? row[latestEpisode] ?? 0 : undefined;
         return <details className="mobile-card mobile-weekly-expander mobile-score-expander" key={row.Username} open={openScoreboardMember === row.Username} onToggle={(event) => {
           if (event.currentTarget.open) setOpenScoreboardMember(row.Username);
           else if (openScoreboardMember === row.Username) setOpenScoreboardMember("");
         }}>
           <summary className="mobile-weekly-summary">
-            <span className="mobile-rank">{rank}</span>
+            <span className="mobile-score-rank-group"><span className="mobile-rank">{rank}</span>{activeScorePeriod === "total" && rankMovement !== 0 && <span className={`mobile-rank-movement ${rankMovement > 0 ? "up" : "down"}`} aria-label={`${rankMovement > 0 ? "Up" : "Down"} ${Math.abs(rankMovement)} places`}>{rankMovement > 0 ? "↑" : "↓"}{Math.abs(rankMovement)}</span>}</span>
             <span className="mobile-score-member"><MemberTag username={row.Username} hue={memberHues.get(row.Username)} /><span className="mobile-score-display-name">{memberDisplayNames.get(row.Username) || row.Username}</span></span>
-            <strong className="mobile-weekly-score"><Points value={row.MobilePoints} seasonTotal /><span className="mobile-expand-control" aria-hidden="true"><span className="mobile-expand-open"><svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6" /></svg></span><span className="mobile-expand-close"><svg viewBox="0 0 24 24"><path d="m6 15 6-6 6 6" /></svg></span></span></strong>
+            <strong className="mobile-weekly-score"><Points value={row.MobilePoints} seasonTotal />{activeScorePeriod === "total" && <span className="mobile-last-episode-points" aria-label={`Last episode points: ${lastEpisodePoints > 0 ? "+" : ""}${lastEpisodePoints}`}>{lastEpisodePoints > 0 ? "+" : lastEpisodePoints < 0 ? "−" : ""}{Math.abs(lastEpisodePoints)}</span>}<span className="mobile-expand-control" aria-hidden="true"><span className="mobile-expand-open"><svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6" /></svg></span><span className="mobile-expand-close"><svg viewBox="0 0 24 24"><path d="m6 15 6-6 6 6" /></svg></span></span></strong>
           </summary>
-          <div className="mobile-weekly-breakdown mobile-score-picks">
-            <h2>{activeScorePeriod === "total" ? "Season picks and points" : "Episode " + episodeNumber(activeScorePeriod) + " picks and points"}</h2>
-            {picks.length ? <>
-              <div className="mobile-pick-grid-heading" aria-hidden="true"><span>Player</span><span>Picks</span><span>Points</span></div>
-              <ul className="mobile-scoring-rules mobile-pick-grid">{[...picks].sort((a, b) => (b.Point ?? -Infinity) - (a.Point ?? -Infinity) || a.Player.localeCompare(b.Player)).map((pick) => <li key={pick.Player}><CastawayIdentity name={pick.Player} eliminated={castawayInfo.get(pick.Player)?.Eliminated} /><span className="mobile-pick-count">{pick.Count}</span><span className="mobile-pick-points"><Points value={pick.Point} highlightPositive /></span></li>)}</ul>
-            </> : <p className="muted">No picks for this episode yet.</p>}
+          <div className="mobile-weekly-breakdown mobile-score-detail-grid">
+            <section className="mobile-score-picks">
+              <h2>{activeScorePeriod === "total" ? "Season picks" : "Episode " + episodeNumber(activeScorePeriod) + " picks"}</h2>
+              {picks.length ? <>
+                <div className="mobile-pick-grid-heading" aria-hidden="true"><span>Player</span><span>Picks</span><span>Points</span></div>
+                <ul className="mobile-scoring-rules mobile-pick-grid">{[...picks].sort((a, b) => (b.Point ?? -Infinity) - (a.Point ?? -Infinity) || a.Player.localeCompare(b.Player)).map((pick) => <li key={pick.Player}><CastawayIdentity name={pick.Player} eliminated={castawayInfo.get(pick.Player)?.Eliminated} /><span className="mobile-pick-count">{pick.Count}</span><span className="mobile-pick-points"><Points value={pick.Point} highlightPositive /></span></li>)}</ul>
+              </> : <p className="muted">No picks for this episode yet.</p>}
+            </section>
+            <section className="mobile-score-episode-breakdown">
+              <h2>Episode points</h2>
+              <ul>{episodes.map((episode) => <li key={episode}><span>EP {episodeNumber(episode)}</span><Points value={row[episode] ?? 0} /></li>)}</ul>
+            </section>
           </div>
         </details>;
       })}</div>
@@ -389,7 +412,7 @@ function MobileDashboard(props) {
         }}>
           <summary className="mobile-weekly-summary">
             <span className="mobile-rank">{rank}</span>
-            <span className="mobile-weekly-player"><CastawayIdentity name={row.Name} eliminated={false} linked={false} /><span className={"tribe " + row.Tribe.toLowerCase()}>{row.Tribe}</span>{row.Eliminated && <span className="eliminated-marker" title="Out" aria-label="Out">OUT</span>}<span className="mobile-picked-count">{row.Users.length ? "Picked by " + row.Users.length + " " + (row.Users.length === 1 ? "person" : "people") : "Not picked"}</span></span>
+            <span className="mobile-weekly-player"><CastawayIdentity name={row.Name} eliminated={false} /><span className={"tribe " + row.Tribe.toLowerCase()}>{row.Tribe}</span>{row.Eliminated && <span className="eliminated-marker" title="Out" aria-label="Out">OUT</span>}<span className="mobile-picked-count">{row.Users.length ? "Picked by " + row.Users.length + " " + (row.Users.length === 1 ? "person" : "people") : "Not picked"}</span></span>
             <strong className="mobile-weekly-score"><Points value={row.Score} highlightPositive /><span className="mobile-expand-control" aria-hidden="true"><span className="mobile-expand-open"><svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6" /></svg></span><span className="mobile-expand-close"><svg viewBox="0 0 24 24"><path d="m6 15 6-6 6 6" /></svg></span></span></strong>
           </summary>
           <div className="mobile-weekly-breakdown">

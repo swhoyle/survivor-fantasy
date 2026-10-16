@@ -1554,6 +1554,34 @@ dialog input {
   gap: 7px;
   overflow: hidden;
 }
+.mobile-score-rank-group {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 3px;
+}
+.mobile-rank-movement {
+  font-size: 9px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.mobile-rank-movement.up {
+  color: #55d995;
+}
+.mobile-rank-movement.down {
+  color: #f17f7f;
+}
+.mobile-last-episode-points {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.mobile-score-expander .mobile-weekly-score {
+  gap: 12px;
+}
 .mobile-score-member .member-tag {
   flex: 0 1 auto;
   max-width: 58%;
@@ -2336,4 +2364,301 @@ dialog input {
     grid-template-columns: 118px minmax(0, 1fr);
     gap: 6px;
   }
+}
+
+/* Keep mobile lists dense while leaving the row controls easy to tap. */
+.mobile-view main {
+  padding-top: 8px;
+  padding-bottom: 16px;
+}
+.mobile-page {
+  gap: 10px;
+  padding: 12px 10px;
+}
+.mobile-card-list {
+  gap: 5px;
+}
+.mobile-card {
+  gap: 7px;
+  padding: 8px;
+}
+.mobile-rank {
+  width: 24px;
+  height: 24px;
+  flex-basis: 24px;
+  font-size: 11px;
+}
+.mobile-week-switch {
+  grid-template-columns: 44px minmax(0, 1fr) 44px;
+  gap: 6px;
+}
+.mobile-week-switch button {
+  min-height: 42px;
+  font-size: 24px;
+}
+.mobile-week-switch strong {
+  font-size: 14px;
+}
+.mobile-episode-picker {
+  gap: 5px;
+  padding-bottom: 4px;
+}
+.mobile-episode-picker button {
+  min-width: 44px;
+  min-height: 38px;
+  padding: 6px 10px;
+  font-size: 12px;
+}
+.mobile-search {
+  min-height: 40px;
+  padding: 8px 10px;
+  font-size: 13px;
+}
+.mobile-castaway-metric-head,
+.mobile-castaway-trigger {
+  grid-template-columns: 24px minmax(0, 1fr) 48px 38px 30px;
+  gap: 5px;
+}
+.mobile-castaway-metric-head {
+  padding: 0 8px 4px;
+  font-size: 10px;
+}
+.mobile-castaway-trigger {
+  min-height: 50px;
+  padding: 7px 8px;
+}
+.mobile-castaway-trigger .mobile-rank {
+  width: 23px;
+  height: 23px;
+}
+.mobile-castaway-trigger .castaway-avatar {
+  width: 20px;
+  height: 20px;
+  flex-basis: 20px;
+}
+.mobile-castaway-value {
+  font-size: 14px;
+}
+.mobile-weekly-summary {
+  min-height: 50px;
+  gap: 6px;
+  padding: 7px 8px;
+}
+.mobile-weekly-player {
+  gap: 5px;
+  font-size: 12px;
+}
+.mobile-weekly-score {
+  gap: 6px;
+  font-size: 14px;
+}
+.mobile-expand-control {
+  width: 30px;
+  min-height: 30px;
+}
+.mobile-scoring-rules li {
+  gap: 8px;
+  padding: 6px 0;
+  font-size: 11px;
+}
+.mobile-eliminated-banner {
+  gap: 6px;
+  padding: 9px;
+}
+.mobile-eliminated-players {
+  gap: 5px;
+}
+.mobile-analytics-grid {
+  gap: 7px;
+}
+.mobile-analytics-row {
+  gap: 6px;
+  padding: 5px 0;
+}
+.mobile-member-analytics-row {
+  gap: 6px;
+  padding: 5px 0;
+}
+.mobile-profile-heading {
+  gap: 8px;
+}
+.mobile-profile-heading .castaway-avatar {
+  width: 48px;
+  height: 48px;
+  flex-basis: 48px;
+}
+.mobile-profile-stats > div {
+  gap: 4px;
+  padding: 9px;
+}
+.mobile-member-highlights {
+  padding: 9px;
+}
+.mobile-member-highlights h2,
+.mobile-member-episodes > h2 {
+  margin-bottom: 6px;
+  font-size: 14px;
+}
+.mobile-member-highlight {
+  gap: 6px;
+  padding: 6px 0;
+}
+.mobile-member-episodes .mobile-card-list {
+  gap: 5px;
+}
+.mobile-member-episode-summary {
+  min-height: 48px;
+}
+.mobile-weekly-breakdown {
+  padding-right: 8px;
+  padding-bottom: 9px;
+  padding-left: 8px;
+}
+.mobile-weekly-breakdown h2 {
+  margin-top: 9px;
+  font-size: 10px;
+}
+.mobile-chip-list {
+  gap: 5px;
+}
+.mobile-chip-list .member-tag {
+  min-height: 28px;
+  padding: 5px 7px;
+}
+@media (max-width: 350px) {
+  .mobile-castaway-metric-head,
+  .mobile-castaway-trigger {
+    grid-template-columns: 22px minmax(0, 1fr) 44px 34px 28px;
+    gap: 4px;
+  }
+}
+.mobile-card-list {
+  gap: 0;
+  overflow: hidden;
+  border: 1px solid #33353a;
+  border-radius: 8px;
+  background: #191a1e;
+}
+.mobile-card-list > .mobile-card {
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid #303136;
+  border-radius: 0;
+  background: transparent;
+}
+.mobile-card-list > .mobile-card:last-child {
+  border-bottom: 0;
+}
+.mobile-weekly-summary {
+  min-height: 44px;
+  padding: 5px 7px;
+}
+.mobile-weekly-player {
+  flex-wrap: nowrap;
+  gap: 4px;
+}
+.mobile-weekly-player .castaway-identity-name {
+  max-width: 82px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mobile-picked-count {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mobile-member-episode-summary {
+  min-height: 44px;
+}
+.mobile-scoring-rule-name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 11px;
+  line-height: 1.2;
+  white-space: normal;
+}
+.mobile-analytics-row > .mobile-card-main > strong {
+  overflow: visible;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+  white-space: normal;
+}
+.mobile-analytics-grid .points,
+.mobile-scoring-summary .points,
+.mobile-weekly-breakdown .points,
+.mobile-rule-detail-score .points,
+.mobile-scoring-total {
+  font-size: 12px;
+}
+.mobile-score-detail-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(86px, 0.62fr);
+  gap: 9px;
+  padding-top: 0;
+}
+.mobile-score-detail-grid section {
+  min-width: 0;
+}
+.mobile-score-detail-grid h2 {
+  margin-top: 9px;
+}
+.mobile-score-picks .mobile-pick-grid-heading,
+.mobile-score-picks .mobile-pick-grid li {
+  grid-template-columns: minmax(0, 1fr) 24px 36px;
+  gap: 4px;
+}
+.mobile-score-picks .mobile-pick-grid-heading {
+  font-size: 8px;
+}
+.mobile-score-picks .castaway-avatar {
+  width: 18px;
+  height: 18px;
+  flex-basis: 18px;
+}
+.mobile-score-picks .castaway-identity-name {
+  font-size: 10px;
+}
+.mobile-score-episode-breakdown ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.mobile-score-episode-breakdown li {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px;
+  padding: 4px 0;
+  border-bottom: 1px solid #303136;
+  font-size: 10px;
+}
+.mobile-score-episode-breakdown li > span:first-child {
+  color: var(--muted);
+  white-space: nowrap;
+}
+.mobile-castaway-trigger {
+  min-height: 44px;
+  padding: 5px 7px;
+}
+.mobile-analytics-grid {
+  gap: 6px;
+}
+.mobile-analytics-card {
+  gap: 2px;
+  padding: 8px;
+}
+.mobile-analytics-card h2 {
+  margin-bottom: 2px;
+  font-size: 13px;
+}
+.mobile-analytics-row {
+  padding: 4px 0;
+}
+.mobile-member-analytics-row {
+  padding: 4px 0;
 }
