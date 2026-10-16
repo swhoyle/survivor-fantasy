@@ -1,0 +1,64 @@
+name: Refresh Survivor data
+
+on:
+  schedule:
+    # 11:00 UTC is 3:00 AM PST (4:00 AM PDT).
+    - cron: '0 11 * * 4'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: refresh-survivor-data
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      BRACKETOLOGY_USERNAME: ${{ secrets.BRACKETOLOGY_USERNAME }}
+      BRACKETOLOGY_PASSWORD: ${{ secrets.BRACKETOLOGY_PASSWORD }}
+      GOOGLE_CREDENTIALS_JSON: ${{ secrets.GOOGLE_CREDENTIALS_JSON }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install Python dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Install Playwright Chromium
+        run: python -m playwright install --with-deps chromium
+
+      - name: Configure Google Sheets credentials
+        shell: bash
+        run: |
+          python - <<'PY'
+          import os
+          from pathlib import Path
+
+          credentials = os.environ.get('GOOGLE_CREDENTIALS_JSON', '')
+          if not credentials:
+              raise SystemExit('Missing GOOGLE_CREDENTIALS_JSON repository secret')
+          Path('google_credentials.json').write_text(credentials, encoding='utf-8')
+          PY
+
+      - name: Refresh contestants
+        run: python scripts/scrape_contestants.py --update-sheet
+
+      - name: Refresh scoring rules
+        run: python scripts/scrape_rules.py --update-sheet
+
+      - name: Refresh episode scores and rules
+        run: python scripts/scrape_recaps.py --update-sheet
+
+      - name: Refresh scoreboard and member pick history
+        run: python scripts/scrape_scoreboard.py --update-sheet --member-history --update-history
