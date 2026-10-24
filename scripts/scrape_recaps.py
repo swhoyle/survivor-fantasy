@@ -51,7 +51,7 @@ def main():
                     if secret:
                         body = body.replace(secret, '[redacted]')
                 (output / 'failure.txt').write_text(
-                    f'URL: {page.url}\\nTitle: {title}\\nHTTP status: {response.status if response else "unknown"}\\n\\n{body}',
+                    f'URL: {page.url}\nTitle: {title}\nHTTP status: {response.status if response else "unknown"}\n\n{body}',
                     encoding='utf-8',
                 )
                 page.screenshot(path=str(output / 'failure.png'), full_page=True)
