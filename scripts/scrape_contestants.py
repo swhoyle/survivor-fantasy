@@ -27,8 +27,26 @@ def main():
         browser = pw.chromium.launch(headless=not args.headed)
         page = browser.new_page(viewport={'width': 1280, 'height': 900})
         try:
-            page.goto(URL, wait_until='domcontentloaded')
-            page.wait_for_function('document.body.innerText.length > 200')
+            response = page.goto(URL, wait_until='domcontentloaded', timeout=60000)
+            print(f'Navigated to {page.url} (HTTP {response.status if response else "unknown"}).', flush=True)
+            try:
+                page.wait_for_function(
+                    "document.body && (document.body.innerText.length > 200 || document.querySelector('input[type=password]'))",
+                    timeout=60000,
+                )
+            except Exception:
+                title = page.title()
+                body = page.locator('body').inner_text()[:2000]
+                for secret in (os.getenv('BRACKETOLOGY_USERNAME'), os.getenv('BRACKETOLOGY_PASSWORD')):
+                    if secret:
+                        body = body.replace(secret, '[redacted]')
+                (output / 'failure.txt').write_text(
+                    f'URL: {page.url}\\nTitle: {title}\\nHTTP status: {response.status if response else "unknown"}\\n\\n{body}',
+                    encoding='utf-8',
+                )
+                page.screenshot(path=str(output / 'failure.png'), full_page=True)
+                print(f'Page did not render expected content. URL={page.url}; title={title}; diagnostics saved under {output.relative_to(ROOT)}.', flush=True)
+                raise
             if page.locator('input[type=password]').is_visible():
                 username, password = os.getenv('BRACKETOLOGY_USERNAME'), os.getenv('BRACKETOLOGY_PASSWORD')
                 if not username or not password:
